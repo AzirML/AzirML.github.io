@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>实验助手 · 本地存储版</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%231f431f'/%3E%3Ctext x='50' y='70' font-size='60' text-anchor='middle' fill='white' font-family='Arial'%3E🔬%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        body {
+            background: #d9e3d9;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .phone-mock {
+            width: 400px;
+            max-width: 100%;
+            background-color: #f6faf6;
+            border-radius: 40px;
+            box-shadow: 0 20px 40px rgba(30, 50, 30, 0.25);
+            overflow: hidden;
+            border: 1px solid #b0c8b0;
+            height: 700px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        .screen {
+            flex: 1;
+            padding: 20px 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+        .nav-tabs {
+            display: flex;
+            gap: 16px;
+            border-bottom: 2px solid #c0dcc0;
+            padding-bottom: 8px;
+            flex-shrink: 0;
+        }
+        .nav-tab {
+            font-size: 18px;
+            font-weight: 600;
+            color: #537553;
+            cursor: pointer;
+            padding: 4px 0;
+            position: relative;
+        }
+        .nav-tab.active {
+            color: #1e4a1e;
+        }
+        .nav-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #2a7a2a;
+            border-radius: 3px;
+        }
+        .view-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            overflow-y: auto;
+        }
+
+        /* 卡片样式 */
+        .card {
+            background: white;
+            border-radius: 28px;
+            padding: 18px 18px;
+            box-shadow: 0 4px 8px rgba(0,30,0,0.03);
+            border: 1px solid #d7e8d7;
+        }
+
+        /* 实验库列表项 */
+        .exp-item {
+            background: #f4fcf4;
+            border-radius: 30px;
+            padding: 16px 18px;
+            border: 1px solid #bcd8bc;
+            cursor: pointer;
+            transition: 0.1s;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .exp-item:hover { background: #eaf5ea; }
+        .exp-name {
+            font-weight: 600;
+            font-size: 18px;
+            color: #1d3a1d;
+        }
+        .exp-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .exp-actions button {
+            background: white;
+            border: 1.5px solid #abc3ab;
+            border-radius: 30px;
+            padding: 8px 16px;
+            font-size: 13px;
+            color: #2b542b;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .exp-actions button.delete-exp {
+            background: #ffeae8;
+            border-color: #d18e8e;
+            color: #a03a3a;
+        }
+        .add-exp-btn {
+            background-color: #1f431f;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        /* 步骤进度条 */
+        .progress-steps {
+            position: relative;
+            padding-left: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-top: 10px;
+        }
+        .progress-steps::before {
+            content: '';
+            position: absolute;
+            left: 12px;
+            top: 8px;
+            bottom: 8px;
+            width: 3px;
+            background-color: #a52a2a;
+            border-radius: 3px;
+        }
+        .step-card {
+            position: relative;
+            background-color: #ffffff;
+            border-radius: 20px;
+            padding: 14px 16px;
+            border: 1px solid #d4e8d4;
+            transition: background-color 0.2s;
+            cursor: pointer;
+        }
+        .step-card.completed {
+            background-color: #e0e6e0 !important;
+            opacity: 0.8;
+        }
+        .step-card.completed .step-content {
+            color: #5a755a;
+        }
+        .step-dot {
+            position: absolute;
+            left: -28px;
+            top: 20px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: white;
+            border: 2.5px solid #9bb59b;
+            z-index: 3;
+        }
+        .step-card.completed .step-dot { background: #a52a2a; border-color: #a52a2a; }
+        .step-tags {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .badge {
+            background: #e2f0e2;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 12px;
+            color: #1f421f;
+        }
+        .step-content {
+            font-size: 14px;
+            color: #1d3a1d;
+            margin-bottom: 6px;
+        }
+        .timer-block {
+            background: #fcf5e8;
+            border-radius: 20px;
+            padding: 12px;
+            margin: 10px 0;
+        }
+        .timer-display {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1f5e1f;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .timer-controls {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .timer-controls button {
+            background: white;
+            border: 1px solid #abc3ab;
+            border-radius: 30px;
+            padding: 6px 16px;
+            font-size: 13px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .step-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .step-actions button {
+            background: none;
+            border: 1px solid #b8cfb8;
+            border-radius: 30px;
+            padding: 6px 14px;
+            font-size: 12px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .delete-step-btn { color: #b14141; border-color: #e0b3b3; }
+        .back-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #2f542f;
+            font-weight: 500;
+            cursor: pointer;
+            margin-bottom: 4px;
+            flex-shrink: 0;
+        }
+
+        /* 编辑表单 */
+        .edit-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .edit-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .edit-field label {
+            font-size: 12px;
+            color: #496349;
+        }
+        .edit-field input, .edit-field select {
+            padding: 8px 12px;
+            border: 1px solid #caddca;
+            border-radius: 30px;
+            font-size: 14px;
+        }
+        .edit-timer-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .edit-timer-row input {
+            width: 80px;
+        }
+        .edit-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 10px;
+        }
+        .edit-actions button {
+            background: #1f431f;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 8px 20px;
+            cursor: pointer;
+        }
+        .edit-actions button.cancel {
+            background: #a0b8a0;
+        }
+
+        /* 移动顺序按钮 */
+        .move-buttons {
+            display: flex;
+            gap: 4px;
+            margin-right: 8px;
+        }
+        .move-buttons button {
+            background: white;
+            border: 1px solid #abc3ab;
+            border-radius: 20px;
+            padding: 4px 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        /* 每日计划区域 */
+        .daily-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .date-navigation {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: white;
+            border-radius: 40px;
+            padding: 10px 18px;
+            border: 1px solid #caddca;
+            flex: 1;
+            margin-right: 8px;
+        }
+        .date-navigation button {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #2f542f;
+            cursor: pointer;
+            padding: 0 8px;
+        }
+        .current-date {
+            font-weight: 600;
+            color: #1f4a1f;
+            font-size: 16px;
+        }
+        .view-toggle-btn {
+            background: white;
+            border: 1px solid #abc3ab;
+            border-radius: 40px;
+            padding: 10px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #2b542b;
+        }
+
+        .daily-task-item, .ongoing-item {
+            background: #ffffff;
+            border-radius: 25px;
+            padding: 16px 18px;
+            border-left: 8px solid #2a7a2a;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 2px 6px #cfdecfa0;
+        }
+        .ongoing-item {
+            border-left-color: #a57c2a;
+        }
+        .task-info h4 { font-size: 16px; color: #173017; }
+        .task-info p { font-size: 14px; color: #4b704b; }
+        .task-goto {
+            background: #1f431f;
+            color: white;
+            border-radius: 30px;
+            padding: 8px 16px;
+            font-size: 13px;
+            border: none;
+        }
+        .empty-message {
+            color: #809780;
+            text-align: center;
+            padding: 30px;
+            font-style: italic;
+        }
+        .footer-btn, .add-step-btn {
+            background: #1f431f;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 14px;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+        .add-step-btn {
+            background: #3f6e3f;
+        }
+
+        /* 模态框样式 */
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 20, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(3px);
+        }
+        .modal-content {
+            background: #f6faf6;
+            border-radius: 40px;
+            padding: 24px 20px;
+            max-width: 90%;
+            max-height: 80%;
+            overflow-y: auto;
+            box-shadow: 0 20px 30px rgba(0, 30, 0, 0.3);
+            border: 2px solid #bcd8bc;
+        }
+        .small-calendar {
+            width: 300px;
+        }
+        .large-calendar {
+            width: 340px;
+        }
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .calendar-header button {
+            background: none;
+            border: 1px solid #abc3ab;
+            border-radius: 30px;
+            padding: 6px 12px;
+            cursor: pointer;
+            color: #2b542b;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            text-align: center;
+        }
+        .weekday {
+            font-weight: 600;
+            color: #3b6e3b;
+            padding: 6px 0;
+        }
+        .calendar-day {
+            background: white;
+            border-radius: 30px;
+            padding: 10px 4px;
+            border: 1px solid #d4e8d4;
+            cursor: pointer;
+            position: relative;
+            transition: 0.1s;
+            min-height: 50px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .calendar-day.selected {
+            background: #c8e0c8;
+            border: 2px solid #2a7a2a;
+        }
+        .day-number {
+            font-weight: 600;
+            color: #1d3a1d;
+            margin-bottom: 4px;
+        }
+        .dot-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 3px;
+            max-width: 100%;
+            padding: 2px;
+        }
+        .task-dot {
+            width: 6px;
+            height: 6px;
+            background: #a52a2a;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .large-calendar .calendar-day {
+            min-height: 70px;
+            padding: 8px 2px;
+        }
+        .large-calendar .dot-container {
+            max-width: 60px;
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .modal-actions button {
+            background: #1f431f;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 10px 24px;
+            cursor: pointer;
+        }
+        .modal-actions button.cancel {
+            background: #9fb59f;
+        }
+        .date-list {
+            margin-top: 16px;
+            background: white;
+            border-radius: 30px;
+            padding: 16px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .date-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e0f0e0;
+        }
+        .date-list-item:last-child {
+            border-bottom: none;
+        }
+        .date-list-item button {
+            background: #1f431f;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 4px 12px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+<div class="phone-mock" id="phoneMock">
+    <div class="screen">
+        <div class="nav-tabs">
+            <div class="nav-tab active" data-view="library">实验库</div>
+            <div class="nav-tab" data-view="ongoing">进行中</div>
+            <div class="nav-tab" data-view="daily">每日计划</div>
+        </div>
+
+        <div id="viewContainer" class="view-container"></div>
+    </div>
+
+    <!-- 实验库多选日历模态框 -->
+    <div id="expDatePickerModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content small-calendar">
+            <div class="calendar-header">
+                <button id="expPrevMonth"><i class="fa-solid fa-chevron-left"></i></button>
+                <span id="expMonthYear">2025-04</span>
+                <button id="expNextMonth"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+            <div class="calendar-grid" id="expCalendarGrid"></div>
+            <div class="modal-actions">
+                <button id="expConfirmDates" class="cancel">确定</button>
+                <button id="expCancelDates" class="cancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 每日计划大日历模态框 -->
+    <div id="dailyCalendarModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content large-calendar">
+            <div class="calendar-header">
+                <button id="dailyPrevMonth"><i class="fa-solid fa-chevron-left"></i></button>
+                <span id="dailyMonthYear">2025-04</span>
+                <button id="dailyNextMonth"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+            <div class="calendar-grid" id="dailyCalendarGrid"></div>
+            <div id="dailySelectedDateTasks" class="date-list"></div>
+            <div class="modal-actions">
+                <button id="dailyCloseCalendar">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ---------- 本地存储键名 ----------
+        const STORAGE_KEY = 'lab_assistant_data';
+
+        // ---------- 默认空数据 ----------
+        const defaultState = {
+            experiments: [],
+            dailyTasks: [],
+            ongoingExperiments: []
+        };
+
+        // ---------- 从 localStorage 加载数据 ----------
+        function loadFromLocalStorage() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    // 确保数据结构完整（可进行简单合并）
+                    return {
+                        experiments: parsed.experiments || [],
+                        dailyTasks: parsed.dailyTasks || [],
+                        ongoingExperiments: parsed.ongoingExperiments || []
+                    };
+                }
+            } catch (e) {
+                console.warn('读取本地存储失败', e);
+            }
+            return defaultState;
+        }
+
+        // ---------- 保存到 localStorage ----------
+        function saveToLocalStorage(state) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            } catch (e) {
+                console.warn('保存到本地存储失败', e);
+            }
+        }
+
+        // ---------- 应用状态 ----------
+        let appState = loadFromLocalStorage();
+
+        let currentView = 'library';
+        let currentExpandedId = null;
+        let currentDailyDate = new Date().toISOString().slice(0,10);
+
+        const timerIntervals = {};
+
+        // 实验库多选日历状态
+        let expDatePickerState = {
+            visible: false,
+            currentYear: new Date().getFullYear(),
+            currentMonth: new Date().getMonth(),
+            selectedDates: [],
+            pendingExpId: null
+        };
+
+        // 每日计划大日历状态
+        let dailyCalendarState = {
+            visible: false,
+            currentYear: new Date().getFullYear(),
+            currentMonth: new Date().getMonth(),
+            selectedDate: null
+        };
+
+        // ---------- 工具函数 ----------
+        function uid(prefix) {
+            return prefix + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+        }
+
+        function formatDate(dateStr) {
+            const d = new Date(dateStr + 'T00:00:00');
+            return d.toLocaleDateString('zh-CN', { month:'numeric', day:'numeric' }) + '日';
+        }
+
+        function formatTime(sec) {
+            if (sec < 0) sec = 0;
+            const hrs = Math.floor(sec / 3600);
+            const mins = Math.floor((sec % 3600) / 60);
+            const secs = sec % 60;
+            return `${hrs.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        }
+
+        // 停止所有计时器
+        function stopAllTimers() {
+            for (let key in timerIntervals) {
+                clearInterval(timerIntervals[key]);
+                delete timerIntervals[key];
+            }
+        }
+
+        // 启动特定步骤的计时器
+        function startStepTimerIfNeeded(expId, step) {
+            if (!step.timer || !step.timer.isRunning) return;
+            const timerKey = `${expId}_${step.id}`;
+            if (timerIntervals[timerKey]) clearInterval(timerIntervals[timerKey]);
+            timerIntervals[timerKey] = setInterval(() => {
+                if (!step.timer || !step.timer.isRunning) {
+                    clearInterval(timerIntervals[timerKey]);
+                    delete timerIntervals[timerKey];
+                    return;
+                }
+                if (step.timer.remaining > 0) {
+                    step.timer.remaining -= 1;
+                    safeRender();
+                } else {
+                    step.timer.isRunning = false;
+                    alert(`步骤 "${step.subtype}" 计时结束！`);
+                    safeRender();
+                }
+            }, 1000);
+        }
+
+        // 安全渲染：停止所有计时器，重新渲染，再重启运行中的计时器，并保存状态
+        function safeRender() {
+            stopAllTimers();
+            render();
+            for (let exp of appState.experiments) {
+                for (let step of exp.steps) {
+                    if (step.timer && step.timer.isRunning) {
+                        startStepTimerIfNeeded(exp.id, step);
+                    }
+                }
+            }
+            for (let exp of appState.ongoingExperiments) {
+                for (let step of exp.steps) {
+                    if (step.timer && step.timer.isRunning) {
+                        startStepTimerIfNeeded(exp.id, step);
+                    }
+                }
+            }
+            // 每次渲染后保存状态
+            saveToLocalStorage(appState);
+        }
+
+        // ---------- 渲染主视图 ----------
+        function render() {
+            const container = document.getElementById('viewContainer');
+            if (!container) return;
+
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                const view = tab.dataset.view;
+                if (view === currentView) tab.classList.add('active');
+                else tab.classList.remove('active');
+            });
+
+            let html = '';
+
+            if (currentView === 'library') {
+                if (currentExpandedId) {
+                    // 实验库详情
+                    const exp = appState.experiments.find(e => e.id === currentExpandedId);
+                    if (exp) {
+                        html += `<div class="back-link" onclick="goToLibraryView()"><i class="fa-solid fa-arrow-left"></i> 返回实验库</div>`;
+                        html += `<div class="card"><h3 style="margin-bottom: 10px;color:#1f4a1f;">📋 ${exp.name}</h3>`;
+                        html += `<div class="progress-steps">`;
+                        exp.steps.forEach((step, index) => {
+                            html += `<div class="step-card" data-step-id="${step.id}">`;
+                            html += `<div class="step-dot"></div>`;
+
+                            if (step.editing) {
+                                // 编辑模式
+                                html += `<div class="edit-form" onclick="event.stopPropagation()">`;
+                                html += `<div class="edit-field"><label>分类</label><input type="text" id="edit-type-${step.id}" value="${step.type || ''}"></div>`;
+                                html += `<div class="edit-field"><label>子类</label><input type="text" id="edit-subtype-${step.id}" value="${step.subtype || ''}"></div>`;
+                                html += `<div class="edit-field"><label>描述</label><input type="text" id="edit-desc-${step.id}" value="${step.description}"></div>`;
+                                html += `<div class="edit-field"><label><input type="checkbox" id="edit-hasTimer-${step.id}" ${step.timer ? 'checked' : ''} onchange="toggleTimerEdit('${step.id}')"> 启用计时</label></div>`;
+                                html += `<div id="timer-edit-${step.id}" style="display: ${step.timer ? 'block' : 'none'};">`;
+                                html += `<div class="edit-timer-row"><label>时长(分)</label><input type="number" id="edit-duration-${step.id}" value="${step.timer ? Math.floor(step.timer.duration/60) : 30}"></div>`;
+                                html += `<div class="edit-timer-row"><label>提醒(分)</label><input type="number" id="edit-reminder-${step.id}" value="${step.timer ? Math.floor(step.timer.reminder/60) : 5}"></div>`;
+                                html += `</div>`;
+                                html += `<div class="edit-actions">`;
+                                html += `<button onclick="saveStepEdit('${exp.id}','${step.id}')">保存</button>`;
+                                html += `<button class="cancel" onclick="cancelStepEdit('${exp.id}','${step.id}')">取消</button>`;
+                                html += `</div>`;
+                                html += `</div>`;
+                            } else {
+                                // 查看模式
+                                html += `<div class="step-tags">`;
+                                html += `<span class="badge">${step.type || '步骤'}</span>`;
+                                html += `<span class="badge">${step.subtype || ''}</span>`;
+                                html += `</div>`;
+                                html += `<div class="step-content">${step.description}</div>`;
+
+                                if (step.timer) {
+                                    const remaining = step.timer.remaining !== undefined ? step.timer.remaining : step.timer.duration;
+                                    html += `<div class="timer-block" onclick="event.stopPropagation()">`;
+                                    html += `<div class="timer-display">${formatTime(remaining)}</div>`;
+                                    html += `<div class="timer-controls">`;
+                                    if (!step.timer.isRunning) {
+                                        html += `<button onclick="startTimer('${exp.id}','${step.id}')"><i class="fa-solid fa-play"></i> 开始</button>`;
+                                    } else {
+                                        html += `<button onclick="pauseTimer('${exp.id}','${step.id}')"><i class="fa-solid fa-pause"></i> 暂停</button>`;
+                                    }
+                                    html += `<button onclick="resetTimer('${exp.id}','${step.id}')"><i class="fa-regular fa-clock"></i> 重置</button>`;
+                                    html += `</div>`;
+                                    html += `</div>`;
+                                }
+
+                                html += `<div class="step-actions" onclick="event.stopPropagation()">`;
+                                html += `<div class="move-buttons">`;
+                                if (index > 0) html += `<button onclick="moveStepUp('${exp.id}','${step.id}')"><i class="fa-solid fa-arrow-up"></i></button>`;
+                                if (index < exp.steps.length-1) html += `<button onclick="moveStepDown('${exp.id}','${step.id}')"><i class="fa-solid fa-arrow-down"></i></button>`;
+                                html += `</div>`;
+                                html += `<button onclick="editStep('${exp.id}','${step.id}')"><i class="fa-regular fa-pen-to-square"></i> 编辑</button>`;
+                                html += `<button class="delete-step-btn" onclick="deleteStep('${exp.id}','${step.id}')"><i class="fa-regular fa-trash-can"></i> 删除</button>`;
+                                html += `</div>`;
+                            }
+                            html += `</div>`;
+                        });
+                        html += `</div>`;
+                        html += `<button class="add-step-btn" onclick="addStep('${exp.id}')"><i class="fa-solid fa-plus"></i> 添加新步骤</button>`;
+                        html += `</div>`;
+                    } else {
+                        html += `<div>实验不存在</div>`;
+                    }
+                } else {
+                    // 实验库列表
+                    html += `<button class="add-exp-btn" onclick="createNewExperiment()"><i class="fa-solid fa-plus"></i> 新建实验</button>`;
+                    if (appState.experiments.length === 0) {
+                        html += `<div class="empty-message">📚 还没有实验，点击上方按钮新建</div>`;
+                    } else {
+                        appState.experiments.forEach(exp => {
+                            html += `<div class="exp-item" onclick="expandExperiment('${exp.id}')">`;
+                            html += `<div class="exp-name">${exp.name}</div>`;
+                            html += `<div class="exp-actions">`;
+                            html += `<button onclick="event.stopPropagation();openExpDatePicker('${exp.id}')"><i class="fa-regular fa-calendar-check"></i> 安排日期</button>`;
+                            html += `<button onclick="event.stopPropagation();editExperiment('${exp.id}')"><i class="fa-regular fa-pen-to-square"></i> 编辑</button>`;
+                            html += `<button onclick="event.stopPropagation();deleteExperiment('${exp.id}')" class="delete-exp"><i class="fa-regular fa-trash-can"></i> 删除</button>`;
+                            html += `<button onclick="event.stopPropagation();startOngoing('${exp.id}')" style="background:#2a7a2a; color:white;"><i class="fa-solid fa-play"></i> 去进行</button>`;
+                            html += `</div>`;
+                            html += `</div>`;
+                        });
+                    }
+                }
+            } else if (currentView === 'ongoing') {
+                if (currentExpandedId) {
+                    // 进行中详情
+                    const exp = appState.ongoingExperiments.find(e => e.id === currentExpandedId);
+                    if (exp) {
+                        html += `<div class="back-link" onclick="goToOngoingView()"><i class="fa-solid fa-arrow-left"></i> 返回进行中</div>`;
+                        html += `<div class="card"><h3 style="margin-bottom: 10px;color:#a57c2a;">⏳ ${exp.name}</h3>`;
+                        html += `<div class="progress-steps">`;
+                        exp.steps.forEach(step => {
+                            const completedClass = step.completed ? 'completed' : '';
+                            html += `<div class="step-card ${completedClass}" data-step-id="${step.id}" onclick="toggleOngoingStepCompletion('${exp.id}','${step.id}', event)">`;
+                            html += `<div class="step-dot"></div>`;
+                            html += `<div class="step-tags">`;
+                            html += `<span class="badge">${step.type || '步骤'}</span>`;
+                            html += `<span class="badge">${step.subtype || ''}</span>`;
+                            html += `</div>`;
+                            html += `<div class="step-content">${step.description}</div>`;
+                            if (step.timer) {
+                                const remaining = step.timer.remaining !== undefined ? step.timer.remaining : step.timer.duration;
+                                html += `<div class="timer-block" onclick="event.stopPropagation()">`;
+                                html += `<div class="timer-display">${formatTime(remaining)}</div>`;
+                                html += `<div class="timer-controls">`;
+                                if (!step.timer.isRunning) {
+                                    html += `<button onclick="startTimer('${exp.id}','${step.id}')"><i class="fa-solid fa-play"></i> 开始</button>`;
+                                } else {
+                                    html += `<button onclick="pauseTimer('${exp.id}','${step.id}')"><i class="fa-solid fa-pause"></i> 暂停</button>`;
+                                }
+                                html += `<button onclick="resetTimer('${exp.id}','${step.id}')"><i class="fa-regular fa-clock"></i> 重置</button>`;
+                                html += `</div>`;
+                                html += `</div>`;
+                            }
+                            html += `</div>`;
+                        });
+                        html += `</div>`;
+                        html += `<button class="footer-btn" onclick="abandonOngoing('${exp.id}')" style="background:#b14141;">放弃实验</button>`;
+                        html += `</div>`;
+                    } else {
+                        html += `<div>实验不存在</div>`;
+                    }
+                } else {
+                    // 进行中列表
+                    if (appState.ongoingExperiments.length === 0) {
+                        html += `<div class="empty-message">⏳ 没有进行中的实验，从实验库点击“去进行”开始</div>`;
+                    } else {
+                        appState.ongoingExperiments.forEach(exp => {
+                            const completedCount = exp.steps.filter(s => s.completed).length;
+                            html += `<div class="ongoing-item" onclick="expandOngoing('${exp.id}')">`;
+                            html += `<div class="task-info"><h4>${exp.name}</h4>`;
+                            html += `<p>进度: ${completedCount}/${exp.steps.length}</p></div>`;
+                            html += `<button class="task-goto" onclick="event.stopPropagation();expandOngoing('${exp.id}')">继续</button>`;
+                            html += `</div>`;
+                        });
+                    }
+                }
+            } else if (currentView === 'daily') {
+                // 每日计划视图
+                html += `<div class="daily-header">`;
+                html += `<div class="date-navigation">`;
+                html += `<button onclick="changeDailyDate(-1)"><i class="fa-solid fa-chevron-left"></i></button>`;
+                html += `<span class="current-date">${formatDate(currentDailyDate)}</span>`;
+                html += `<button onclick="changeDailyDate(1)"><i class="fa-solid fa-chevron-right"></i></button>`;
+                html += `</div>`;
+                html += `<button class="view-toggle-btn" onclick="openDailyCalendar()"><i class="fa-regular fa-calendar"></i> 日历</button>`;
+                html += `</div>`;
+
+                const tasksForDate = appState.dailyTasks.filter(t => t.date === currentDailyDate);
+                if (tasksForDate.length === 0) {
+                    html += `<div class="empty-message">✨ 这天还没有实验，从实验库安排吧</div>`;
+                } else {
+                    tasksForDate.forEach(task => {
+                        html += `<div class="daily-task-item" onclick="locateExperiment('${task.experimentId}')">`;
+                        html += `<div class="task-info"><h4>${task.expName}</h4>`;
+                        html += `<p>点击查看步骤</p></div>`;
+                        html += `<button class="task-goto" onclick="event.stopPropagation();locateExperiment('${task.experimentId}')">进行</button>`;
+                        html += `</div>`;
+                    });
+                }
+                html += `<button class="footer-btn" onclick="clearDailyTasks()" style="background: #9fb59f;">清除所有任务</button>`;
+            }
+            container.innerHTML = html;
+        }
+
+        // ---------- 进行中相关函数 ----------
+        window.startOngoing = function(expId) {
+            const exp = appState.experiments.find(e => e.id === expId);
+            if (!exp) return;
+            const newExp = JSON.parse(JSON.stringify(exp));
+            newExp.id = uid('ongoing_');
+            newExp.steps.forEach(s => {
+                s.completed = false;
+                if (s.timer) {
+                    s.timer.remaining = s.timer.duration;
+                    s.timer.isRunning = false;
+                }
+            });
+            appState.ongoingExperiments.push(newExp);
+            safeRender();
+        };
+
+        window.expandOngoing = function(expId) {
+            currentExpandedId = expId;
+            safeRender();
+        };
+
+        window.goToOngoingView = function() {
+            currentExpandedId = null;
+            safeRender();
+        };
+
+        window.toggleOngoingStepCompletion = function(expId, stepId, event) {
+            if (event.target.tagName === 'BUTTON' || event.target.closest('button')) return;
+            const exp = appState.ongoingExperiments.find(e => e.id === expId);
+            if (!exp) return;
+            const step = exp.steps.find(s => s.id === stepId);
+            if (!step) return;
+            step.completed = !step.completed;
+            safeRender();
+
+            const allCompleted = exp.steps.every(s => s.completed);
+            if (allCompleted) {
+                if (confirm('所有步骤已完成，是否结束此实验？')) {
+                    appState.ongoingExperiments = appState.ongoingExperiments.filter(e => e.id !== expId);
+                    if (currentExpandedId === expId) currentExpandedId = null;
+                    safeRender();
+                }
+            }
+        };
+
+        window.abandonOngoing = function(expId) {
+            if (confirm('确定放弃该实验吗？')) {
+                appState.ongoingExperiments = appState.ongoingExperiments.filter(e => e.id !== expId);
+                if (currentExpandedId === expId) currentExpandedId = null;
+                safeRender();
+            }
+        };
+
+        // ---------- 实验库步骤排序 ----------
+        window.moveStepUp = function(expId, stepId) {
+            const exp = appState.experiments.find(e => e.id === expId);
+            if (!exp) return;
+            const index = exp.steps.findIndex(s => s.id === stepId);
+            if (index > 0) {
+                [exp.steps[index-1], exp.steps[index]] = [exp.steps[index], exp.steps[index-1]];
+                safeRender();
+            }
+        };
+
+        window.moveStepDown = function(expId, stepId) {
+            const exp = appState.experiments.find(e => e.id === expId);
+            if (!exp) return;
+            const index = exp.steps.findIndex(s => s.id === stepId);
+            if (index < exp.steps.length - 1) {
+                [exp.steps[index], exp.steps[index+1]] = [exp.steps[index+1], exp.steps[index]];
+                safeRender();
+            }
+        };
+
+        // ---------- 实验库基础操作 ----------
+        window.goToLibraryView = function() { currentExpandedId = null; safeRender(); };
+        window.expandExperiment = function(expId) { currentExpandedId = expId; safeRender(); };
+        window.deleteExperiment = function(expId) {
+            if (!confirm('确定删除该实验吗？')) return;
+            appState.experiments = appState.experiments.filter(e => e.id !== expId);
+            appState.dailyTasks = appState.dailyTasks.filter(t => t.experimentId !== expId);
+            if (currentExpandedId === expId) currentExpandedId = null;
+            safeRender();
+        };
+        window.editExperiment = function(expId) {
+            const exp = appState.experiments.find(e => e.id === expId);
+            if (!exp) return;
+            const newName = prompt('修改实验名称', exp.name);
+            if (newName) exp.name = newName;
+            safeRender();
+        };
+        window.createNewExperiment = function() {
+            const name = prompt('输入新实验名称', '新实验');
+            if (!name) return;
+            const newId = uid('exp_');
+            const newExp = {
+                id: newId,
+                name: name,
+                steps: [
+                    { id: uid('step_'), type: '开始', subtype: '准备', description: '描述步骤1', timer: null, completed: false, editing: false },
+                    { id: uid('step_'), type: '操作', subtype: '核心', description: '描述步骤2', timer: { duration: 1200, reminder: 300, remaining: 1200, isRunning: false }, completed: false, editing: false }
+                ]
+            };
+            appState.experiments.push(newExp);
+            safeRender();
+        };
+        window.editStep = function(expId, stepId) {
+            const exp = appState.experiments.find(e => e.id === expId);
+            if (!exp) return;
+            const step = exp.steps.find(s => s.id === stepId);
+            if (!step) return;
+            step.editing = true;
+            safeRender();
+        };
+        window.saveStepEdit = function(expId, stepId) {
+            const exp = appState.experiments.find(e => e.id === expId);
+            if (!exp) return;
+            const step = exp.steps.find(s => s.id === stepId);
+            if (!step) return;
+
+            const newType = document.getElementById(`edit-type-${stepId}`).value;
+            const newSubtype = document.getElementById(`edit-subtype-${stepId}`).value;
+            const newDesc = document.getElementById(`edit-desc-${stepId}`).value;
+            const hasTimer = document.getElementById(`edit-hasTimer-${stepId}`).checked;
+
+            if (hasTimer) {
+                const durationMin = parseInt(document.getElementById(`edit-duration-${stepId}`).value) || 30;
+                const reminderMin = parseInt(document.getElementById(`edit-reminder-${stepId}`).value) || 5;
+                const duration = durationMin * 60;
+                const reminder = reminderMin * 60;
+                if (!step.timer) {
+                    step.timer = { duration, reminder, remaining: duration, isRunning: false };
+                } else {
+                    step.timer.duration = duration;
+                    step.timer.reminder = reminder;
+                    step.timer.remaining = duration;
+                    step.timer.isRunning = false;
+                }
+            } else {
+                step.timer = null;
+            }
+
+            step.type = newType;
+            step.subtype = newSubtype;
+            step.description = newDesc;
+            step.editing = false;
+            safeRender();
+        };
+        window.cancelStepEdit = function(expId, stepId) {
+            const exp = appState.experiments.find(e => e.id === expId);
+            if (!exp) return;
+            const step = exp.steps.find(s => s.id === stepId);
+            if (!step) return;
+            step.editing = false;
+            safeRender();
+        };
+        window.toggleTimerEdit = function(stepId) {
+            const checked = document.getElementById(`edit-hasTimer-${stepId}`).checked;
+            const timerDiv = document.getElementById(`timer-edit-${stepId}`);
+            if (timerDiv) timerDiv.style.display = checked ? 'block' : 'none';
+        };
+        window.startTimer = function(expId, stepId) {
+            let exp = appState.experiments.find(e => e.id === expId) || appState.ongoingExperiments.find(e => e.id === expId);
+            if (!exp) return;
+            const step = exp.steps.find(s => s.id === stepId);
+            if (!step || !step.timer || step.timer.remaining <= 0) return;
+            step.timer.isRunning = true;
+            safeRender();
+        };
+        window.pauseTimer = function(expId, stepId) {
+            let exp = appState.experiments.find(e => e.id === expId) || appState.ongoingExperiments.find(e => e.id === expId);
+            if (!exp) return;
+            const step = exp.steps.find(s => s.id === stepId);
+            if (!step || !step.timer) return;
+            step.timer.isRunning = false;
+            safeRender();
+        };
+        window.resetTimer = function(expId, stepId) {
+            let exp = appState.experiments.find(e => e.id === expId) || appState.ongoingExperiments.find(e => e.id === expId);
+            if (!exp) return;
+            const step = exp.steps.find(s => s.id === stepId);
+            if (!step || !step.timer) return;
+            step.timer.remaining = step.timer.duration;
+            step.timer.isRunning = false;
+            safeRender();
+        };
+        window.deleteStep = function(expId, stepId) {
+            if (!confirm('确定删除此步骤吗？')) return;
+            const exp = appState.experiments.find(e => e.id === expId);
+            if (!exp) return;
+            exp.steps = exp.steps.filter(s => s.id !== stepId);
+            safeRender();
+        };
+        window.addStep = function(expId) {
+            const exp = appState.experiments.find(e => e.id === expId);
+            if (!exp) return;
+            const newStep = {
+                id: uid('step_'),
+                type: '操作',
+                subtype: '新步骤',
+                description: '点击编辑修改内容',
+                timer: null,
+                completed: false,
+                editing: true
+            };
+            exp.steps.push(newStep);
+            safeRender();
+        };
+
+        // ---------- 日历相关 ----------
+        window.openExpDatePicker = function(expId) {
+            expDatePickerState.visible = true;
+            expDatePickerState.pendingExpId = expId;
+            expDatePickerState.selectedDates = [];
+            expDatePickerState.currentYear = new Date().getFullYear();
+            expDatePickerState.currentMonth = new Date().getMonth();
+            updateExpCalendar();
+            document.getElementById('expDatePickerModal').style.display = 'flex';
+        };
+
+        function closeExpDatePicker() {
+            expDatePickerState.visible = false;
+            document.getElementById('expDatePickerModal').style.display = 'none';
+        }
+
+        function updateExpCalendar() {
+            const monthYearSpan = document.getElementById('expMonthYear');
+            monthYearSpan.innerText = `${expDatePickerState.currentYear}-${String(expDatePickerState.currentMonth+1).padStart(2,'0')}`;
+            const grid = document.getElementById('expCalendarGrid');
+            const weekdays = ['一','二','三','四','五','六','日'];
+            let html = '';
+            weekdays.forEach(d => html += `<div class="weekday">${d}</div>`);
+            const firstDay = new Date(expDatePickerState.currentYear, expDatePickerState.currentMonth, 1);
+            let startWeekday = firstDay.getDay();
+            if (startWeekday === 0) startWeekday = 7;
+            startWeekday -= 1;
+            const daysInMonth = new Date(expDatePickerState.currentYear, expDatePickerState.currentMonth + 1, 0).getDate();
+            for (let i = 0; i < startWeekday; i++) {
+                html += `<div class="calendar-day" style="background: transparent; border: none;"></div>`;
+            }
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${expDatePickerState.currentYear}-${String(expDatePickerState.currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const isSelected = expDatePickerState.selectedDates.includes(dateStr);
+                html += `<div class="calendar-day ${isSelected ? 'selected' : ''}" onclick="toggleExpDate('${dateStr}')">`;
+                html += `<span class="day-number">${d}</span>`;
+                html += `</div>`;
+            }
+            grid.innerHTML = html;
+        }
+
+        window.toggleExpDate = function(dateStr) {
+            const idx = expDatePickerState.selectedDates.indexOf(dateStr);
+            if (idx === -1) expDatePickerState.selectedDates.push(dateStr);
+            else expDatePickerState.selectedDates.splice(idx, 1);
+            updateExpCalendar();
+        };
+
+        document.getElementById('expPrevMonth').addEventListener('click', () => {
+            if (expDatePickerState.currentMonth === 0) {
+                expDatePickerState.currentYear--;
+                expDatePickerState.currentMonth = 11;
+            } else {
+                expDatePickerState.currentMonth--;
+            }
+            updateExpCalendar();
+        });
+        document.getElementById('expNextMonth').addEventListener('click', () => {
+            if (expDatePickerState.currentMonth === 11) {
+                expDatePickerState.currentYear++;
+                expDatePickerState.currentMonth = 0;
+            } else {
+                expDatePickerState.currentMonth++;
+            }
+            updateExpCalendar();
+        });
+        document.getElementById('expConfirmDates').addEventListener('click', () => {
+            const expId = expDatePickerState.pendingExpId;
+            const exp = appState.experiments.find(e => e.id === expId);
+            if (!exp) return;
+            if (expDatePickerState.selectedDates.length === 0) {
+                alert('请至少选择一个日期');
+                return;
+            }
+            expDatePickerState.selectedDates.forEach(dateStr => {
+                if (!appState.dailyTasks.some(t => t.experimentId === expId && t.date === dateStr)) {
+                    appState.dailyTasks.push({ id: uid('task_'), experimentId: expId, expName: exp.name, date: dateStr });
+                }
+            });
+            alert(`已添加到 ${expDatePickerState.selectedDates.length} 天`);
+            closeExpDatePicker();
+            safeRender();
+        });
+        document.getElementById('expCancelDates').addEventListener('click', closeExpDatePicker);
+
+        window.openDailyCalendar = function() {
+            dailyCalendarState.visible = true;
+            dailyCalendarState.currentYear = new Date().getFullYear();
+            dailyCalendarState.currentMonth = new Date().getMonth();
+            dailyCalendarState.selectedDate = null;
+            updateDailyCalendar();
+            document.getElementById('dailyCalendarModal').style.display = 'flex';
+        };
+
+        function closeDailyCalendar() {
+            dailyCalendarState.visible = false;
+            document.getElementById('dailyCalendarModal').style.display = 'none';
+        }
+
+        function updateDailyCalendar() {
+            const monthYearSpan = document.getElementById('dailyMonthYear');
+            monthYearSpan.innerText = `${dailyCalendarState.currentYear}-${String(dailyCalendarState.currentMonth+1).padStart(2,'0')}`;
+            const grid = document.getElementById('dailyCalendarGrid');
+            const weekdays = ['一','二','三','四','五','六','日'];
+            let html = '';
+            weekdays.forEach(d => html += `<div class="weekday">${d}</div>`);
+            const firstDay = new Date(dailyCalendarState.currentYear, dailyCalendarState.currentMonth, 1);
+            let startWeekday = firstDay.getDay();
+            if (startWeekday === 0) startWeekday = 7;
+            startWeekday -= 1;
+            const daysInMonth = new Date(dailyCalendarState.currentYear, dailyCalendarState.currentMonth + 1, 0).getDate();
+            for (let i = 0; i < startWeekday; i++) {
+                html += `<div class="calendar-day" style="background: transparent; border: none;"></div>`;
+            }
+            const tasksInMonth = appState.dailyTasks.filter(t => t.date.startsWith(`${dailyCalendarState.currentYear}-${String(dailyCalendarState.currentMonth+1).padStart(2,'0')}`));
+            const tasksByDate = {};
+            tasksInMonth.forEach(t => {
+                if (!tasksByDate[t.date]) tasksByDate[t.date] = [];
+                tasksByDate[t.date].push(t);
+            });
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${dailyCalendarState.currentYear}-${String(dailyCalendarState.currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const isSelected = (dailyCalendarState.selectedDate === dateStr);
+                const tasks = tasksByDate[dateStr] || [];
+                const dotCount = tasks.length;
+                html += `<div class="calendar-day ${isSelected ? 'selected' : ''}" onclick="selectDailyDate('${dateStr}')">`;
+                html += `<span class="day-number">${d}</span>`;
+                if (dotCount > 0) {
+                    html += `<div class="dot-container">`;
+                    const dotsToShow = Math.min(dotCount, 9);
+                    for (let i = 0; i < dotsToShow; i++) {
+                        html += `<span class="task-dot"></span>`;
+                        if ((i+1) % 3 === 0 && i+1 < dotsToShow) html += `<br>`;
+                    }
+                    if (dotCount > 9) html += `<span>...</span>`;
+                    html += `</div>`;
+                }
+                html += `</div>`;
+            }
+            grid.innerHTML = html;
+            const taskListDiv = document.getElementById('dailySelectedDateTasks');
+            if (dailyCalendarState.selectedDate) {
+                const tasks = appState.dailyTasks.filter(t => t.date === dailyCalendarState.selectedDate);
+                let listHtml = `<h4 style="margin-bottom: 8px;color:#1f4a1f;">📋 ${dailyCalendarState.selectedDate}</h4>`;
+                if (tasks.length === 0) {
+                    listHtml += `<p>无实验安排</p>`;
+                } else {
+                    tasks.forEach(task => {
+                        listHtml += `<div class="date-list-item"><span>${task.expName}</span><button onclick="locateExperiment('${task.experimentId}'); closeDailyCalendar();">进行</button></div>`;
+                    });
+                }
+                taskListDiv.innerHTML = listHtml;
+            } else {
+                taskListDiv.innerHTML = `<p style="color:#809780;">点击日期查看实验</p>`;
+            }
+        }
+
+        window.selectDailyDate = function(dateStr) {
+            dailyCalendarState.selectedDate = dateStr;
+            updateDailyCalendar();
+        };
+
+        document.getElementById('dailyPrevMonth').addEventListener('click', () => {
+            if (dailyCalendarState.currentMonth === 0) {
+                dailyCalendarState.currentYear--;
+                dailyCalendarState.currentMonth = 11;
+            } else {
+                dailyCalendarState.currentMonth--;
+            }
+            dailyCalendarState.selectedDate = null;
+            updateDailyCalendar();
+        });
+        document.getElementById('dailyNextMonth').addEventListener('click', () => {
+            if (dailyCalendarState.currentMonth === 11) {
+                dailyCalendarState.currentYear++;
+                dailyCalendarState.currentMonth = 0;
+            } else {
+                dailyCalendarState.currentMonth++;
+            }
+            dailyCalendarState.selectedDate = null;
+            updateDailyCalendar();
+        });
+        document.getElementById('dailyCloseCalendar').addEventListener('click', closeDailyCalendar);
+
+        window.changeDailyDate = function(delta) {
+            const d = new Date(currentDailyDate + 'T00:00:00');
+            d.setDate(d.getDate() + delta);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2,'0');
+            const day = String(d.getDate()).padStart(2,'0');
+            currentDailyDate = `${year}-${month}-${day}`;
+            safeRender();
+        };
+        window.locateExperiment = function(expId) {
+            currentView = 'library';
+            currentExpandedId = expId;
+            safeRender();
+        };
+        window.clearDailyTasks = function() {
+            if (confirm('清除所有每日任务？')) {
+                appState.dailyTasks = [];
+                safeRender();
+            }
+        };
+
+        // 导航切换
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                const view = tab.dataset.view;
+                if (view) {
+                    currentView = view;
+                    currentExpandedId = null;
+                    safeRender();
+                }
+            });
+        });
+
+        // 初始渲染
+        safeRender();
+    })();
+</script>
+</body>
+</html>
