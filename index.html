@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>实验助手 · 本地存储版</title>
+    <title>实验助手 · 优化版</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%231f431f'/%3E%3Ctext x='50' y='70' font-size='60' text-anchor='middle' fill='white' font-family='Arial'%3E🔬%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
+        /* 所有样式保持不变，与之前相同（为节省篇幅此处省略，实际使用时请保持完整） */
+        /* 注：样式完全沿用上一版本，无需修改 */
         * {
             margin: 0;
             padding: 0;
@@ -80,8 +82,6 @@
             gap: 18px;
             overflow-y: auto;
         }
-
-        /* 卡片样式 */
         .card {
             background: white;
             border-radius: 28px;
@@ -89,8 +89,6 @@
             box-shadow: 0 4px 8px rgba(0,30,0,0.03);
             border: 1px solid #d7e8d7;
         }
-
-        /* 实验库列表项 */
         .exp-item {
             background: #f4fcf4;
             border-radius: 30px;
@@ -144,8 +142,6 @@
             cursor: pointer;
             margin-top: 8px;
         }
-
-        /* 步骤进度条 */
         .progress-steps {
             position: relative;
             padding-left: 28px;
@@ -269,8 +265,6 @@
             margin-bottom: 4px;
             flex-shrink: 0;
         }
-
-        /* 编辑表单 */
         .edit-form {
             display: flex;
             flex-direction: column;
@@ -317,8 +311,6 @@
         .edit-actions button.cancel {
             background: #a0b8a0;
         }
-
-        /* 移动顺序按钮 */
         .move-buttons {
             display: flex;
             gap: 4px;
@@ -332,8 +324,6 @@
             font-size: 12px;
             cursor: pointer;
         }
-
-        /* 每日计划区域 */
         .daily-header {
             display: flex;
             justify-content: space-between;
@@ -376,7 +366,6 @@
             gap: 6px;
             color: #2b542b;
         }
-
         .daily-task-item, .ongoing-item {
             background: #ffffff;
             border-radius: 25px;
@@ -422,8 +411,6 @@
         .add-step-btn {
             background: #3f6e3f;
         }
-
-        /* 模态框样式 */
         .modal-overlay {
             position: absolute;
             top: 0;
@@ -618,20 +605,17 @@
         // ---------- 本地存储键名 ----------
         const STORAGE_KEY = 'lab_assistant_data';
 
-        // ---------- 默认空数据 ----------
         const defaultState = {
             experiments: [],
             dailyTasks: [],
             ongoingExperiments: []
         };
 
-        // ---------- 从 localStorage 加载数据 ----------
         function loadFromLocalStorage() {
             try {
                 const saved = localStorage.getItem(STORAGE_KEY);
                 if (saved) {
                     const parsed = JSON.parse(saved);
-                    // 确保数据结构完整（可进行简单合并）
                     return {
                         experiments: parsed.experiments || [],
                         dailyTasks: parsed.dailyTasks || [],
@@ -644,7 +628,6 @@
             return defaultState;
         }
 
-        // ---------- 保存到 localStorage ----------
         function saveToLocalStorage(state) {
             try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -653,12 +636,14 @@
             }
         }
 
-        // ---------- 应用状态 ----------
         let appState = loadFromLocalStorage();
 
         let currentView = 'library';
         let currentExpandedId = null;
         let currentDailyDate = new Date().toISOString().slice(0,10);
+
+        // 新增标志：是否从每日计划进入实验详情
+        let cameFromDaily = false;
 
         const timerIntervals = {};
 
@@ -679,7 +664,6 @@
             selectedDate: null
         };
 
-        // ---------- 工具函数 ----------
         function uid(prefix) {
             return prefix + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
         }
@@ -697,7 +681,6 @@
             return `${hrs.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
         }
 
-        // 停止所有计时器
         function stopAllTimers() {
             for (let key in timerIntervals) {
                 clearInterval(timerIntervals[key]);
@@ -705,7 +688,6 @@
             }
         }
 
-        // 启动特定步骤的计时器
         function startStepTimerIfNeeded(expId, step) {
             if (!step.timer || !step.timer.isRunning) return;
             const timerKey = `${expId}_${step.id}`;
@@ -727,7 +709,6 @@
             }, 1000);
         }
 
-        // 安全渲染：停止所有计时器，重新渲染，再重启运行中的计时器，并保存状态
         function safeRender() {
             stopAllTimers();
             render();
@@ -745,11 +726,17 @@
                     }
                 }
             }
-            // 每次渲染后保存状态
             saveToLocalStorage(appState);
         }
 
-        // ---------- 渲染主视图 ----------
+        // 返回每日计划（由详情页的返回按钮调用）
+        window.goToDailyFromDetail = function() {
+            cameFromDaily = false;
+            currentView = 'daily';
+            currentExpandedId = null;
+            safeRender();
+        };
+
         function render() {
             const container = document.getElementById('viewContainer');
             if (!container) return;
@@ -764,10 +751,14 @@
 
             if (currentView === 'library') {
                 if (currentExpandedId) {
-                    // 实验库详情
                     const exp = appState.experiments.find(e => e.id === currentExpandedId);
                     if (exp) {
-                        html += `<div class="back-link" onclick="goToLibraryView()"><i class="fa-solid fa-arrow-left"></i> 返回实验库</div>`;
+                        // 根据来源显示不同的返回链接
+                        if (cameFromDaily) {
+                            html += `<div class="back-link" onclick="goToDailyFromDetail()"><i class="fa-solid fa-arrow-left"></i> 返回每日计划</div>`;
+                        } else {
+                            html += `<div class="back-link" onclick="goToLibraryView()"><i class="fa-solid fa-arrow-left"></i> 返回实验库</div>`;
+                        }
                         html += `<div class="card"><h3 style="margin-bottom: 10px;color:#1f4a1f;">📋 ${exp.name}</h3>`;
                         html += `<div class="progress-steps">`;
                         exp.steps.forEach((step, index) => {
@@ -775,7 +766,6 @@
                             html += `<div class="step-dot"></div>`;
 
                             if (step.editing) {
-                                // 编辑模式
                                 html += `<div class="edit-form" onclick="event.stopPropagation()">`;
                                 html += `<div class="edit-field"><label>分类</label><input type="text" id="edit-type-${step.id}" value="${step.type || ''}"></div>`;
                                 html += `<div class="edit-field"><label>子类</label><input type="text" id="edit-subtype-${step.id}" value="${step.subtype || ''}"></div>`;
@@ -791,12 +781,20 @@
                                 html += `</div>`;
                                 html += `</div>`;
                             } else {
-                                // 查看模式
                                 html += `<div class="step-tags">`;
-                                html += `<span class="badge">${step.type || '步骤'}</span>`;
-                                html += `<span class="badge">${step.subtype || ''}</span>`;
+                                // 修改：仅当type有内容时才显示badge
+                                if (step.type && step.type.trim() !== '') {
+                                    html += `<span class="badge">${step.type}</span>`;
+                                }
+                                // 修改：仅当subtype有内容时才显示badge
+                                if (step.subtype && step.subtype.trim() !== '') {
+                                    html += `<span class="badge">${step.subtype}</span>`;
+                                }
                                 html += `</div>`;
-                                html += `<div class="step-content">${step.description}</div>`;
+                                // 修改：仅当description有内容时才显示内容
+                                if (step.description && step.description.trim() !== '') {
+                                    html += `<div class="step-content">${step.description}</div>`;
+                                }
 
                                 if (step.timer) {
                                     const remaining = step.timer.remaining !== undefined ? step.timer.remaining : step.timer.duration;
@@ -826,12 +824,13 @@
                         });
                         html += `</div>`;
                         html += `<button class="add-step-btn" onclick="addStep('${exp.id}')"><i class="fa-solid fa-plus"></i> 添加新步骤</button>`;
+                        // 新增：去进行按钮
+                        html += `<button class="footer-btn" onclick="startOngoingFromDetail('${exp.id}')" style="margin-top: 8px; background:#2a7a2a;"><i class="fa-solid fa-play"></i> 去进行</button>`;
                         html += `</div>`;
                     } else {
                         html += `<div>实验不存在</div>`;
                     }
                 } else {
-                    // 实验库列表
                     html += `<button class="add-exp-btn" onclick="createNewExperiment()"><i class="fa-solid fa-plus"></i> 新建实验</button>`;
                     if (appState.experiments.length === 0) {
                         html += `<div class="empty-message">📚 还没有实验，点击上方按钮新建</div>`;
@@ -851,7 +850,6 @@
                 }
             } else if (currentView === 'ongoing') {
                 if (currentExpandedId) {
-                    // 进行中详情
                     const exp = appState.ongoingExperiments.find(e => e.id === currentExpandedId);
                     if (exp) {
                         html += `<div class="back-link" onclick="goToOngoingView()"><i class="fa-solid fa-arrow-left"></i> 返回进行中</div>`;
@@ -862,10 +860,16 @@
                             html += `<div class="step-card ${completedClass}" data-step-id="${step.id}" onclick="toggleOngoingStepCompletion('${exp.id}','${step.id}', event)">`;
                             html += `<div class="step-dot"></div>`;
                             html += `<div class="step-tags">`;
-                            html += `<span class="badge">${step.type || '步骤'}</span>`;
-                            html += `<span class="badge">${step.subtype || ''}</span>`;
+                            if (step.type && step.type.trim() !== '') {
+                                html += `<span class="badge">${step.type}</span>`;
+                            }
+                            if (step.subtype && step.subtype.trim() !== '') {
+                                html += `<span class="badge">${step.subtype}</span>`;
+                            }
                             html += `</div>`;
-                            html += `<div class="step-content">${step.description}</div>`;
+                            if (step.description && step.description.trim() !== '') {
+                                html += `<div class="step-content">${step.description}</div>`;
+                            }
                             if (step.timer) {
                                 const remaining = step.timer.remaining !== undefined ? step.timer.remaining : step.timer.duration;
                                 html += `<div class="timer-block" onclick="event.stopPropagation()">`;
@@ -889,7 +893,6 @@
                         html += `<div>实验不存在</div>`;
                     }
                 } else {
-                    // 进行中列表
                     if (appState.ongoingExperiments.length === 0) {
                         html += `<div class="empty-message">⏳ 没有进行中的实验，从实验库点击“去进行”开始</div>`;
                     } else {
@@ -904,7 +907,6 @@
                     }
                 }
             } else if (currentView === 'daily') {
-                // 每日计划视图
                 html += `<div class="daily-header">`;
                 html += `<div class="date-navigation">`;
                 html += `<button onclick="changeDailyDate(-1)"><i class="fa-solid fa-chevron-left"></i></button>`;
@@ -919,10 +921,11 @@
                     html += `<div class="empty-message">✨ 这天还没有实验，从实验库安排吧</div>`;
                 } else {
                     tasksForDate.forEach(task => {
-                        html += `<div class="daily-task-item" onclick="locateExperiment('${task.experimentId}')">`;
+                        html += `<div class="daily-task-item" onclick="locateExperimentFromDaily('${task.experimentId}')">`;
                         html += `<div class="task-info"><h4>${task.expName}</h4>`;
                         html += `<p>点击查看步骤</p></div>`;
-                        html += `<button class="task-goto" onclick="event.stopPropagation();locateExperiment('${task.experimentId}')">进行</button>`;
+                        // 修改：文字改为“查看”
+                        html += `<button class="task-goto" onclick="event.stopPropagation();locateExperimentFromDaily('${task.experimentId}')">查看</button>`;
                         html += `</div>`;
                     });
                 }
@@ -930,6 +933,24 @@
             }
             container.innerHTML = html;
         }
+
+        // 新增：从每日计划进入实验详情，设置标志并跳转
+        window.locateExperimentFromDaily = function(expId) {
+            cameFromDaily = true;
+            currentView = 'library';
+            currentExpandedId = expId;
+            safeRender();
+        };
+
+        // 新增：从详情页直接开始进行
+        window.startOngoingFromDetail = function(expId) {
+            startOngoing(expId);
+            // 可以选择切换到进行中视图
+            currentView = 'ongoing';
+            currentExpandedId = null; // 返回进行中列表
+            cameFromDaily = false; // 重置标志
+            safeRender();
+        };
 
         // ---------- 进行中相关函数 ----------
         window.startOngoing = function(expId) {
@@ -1007,8 +1028,18 @@
         };
 
         // ---------- 实验库基础操作 ----------
-        window.goToLibraryView = function() { currentExpandedId = null; safeRender(); };
-        window.expandExperiment = function(expId) { currentExpandedId = expId; safeRender(); };
+        window.goToLibraryView = function() {
+            currentExpandedId = null;
+            cameFromDaily = false; // 重置标志
+            safeRender();
+        };
+
+        window.expandExperiment = function(expId) {
+            cameFromDaily = false; // 从实验库进入，重置标志
+            currentExpandedId = expId;
+            safeRender();
+        };
+
         window.deleteExperiment = function(expId) {
             if (!confirm('确定删除该实验吗？')) return;
             appState.experiments = appState.experiments.filter(e => e.id !== expId);
@@ -1281,26 +1312,15 @@
                 html += `</div>`;
             }
             grid.innerHTML = html;
-            const taskListDiv = document.getElementById('dailySelectedDateTasks');
-            if (dailyCalendarState.selectedDate) {
-                const tasks = appState.dailyTasks.filter(t => t.date === dailyCalendarState.selectedDate);
-                let listHtml = `<h4 style="margin-bottom: 8px;color:#1f4a1f;">📋 ${dailyCalendarState.selectedDate}</h4>`;
-                if (tasks.length === 0) {
-                    listHtml += `<p>无实验安排</p>`;
-                } else {
-                    tasks.forEach(task => {
-                        listHtml += `<div class="date-list-item"><span>${task.expName}</span><button onclick="locateExperiment('${task.experimentId}'); closeDailyCalendar();">进行</button></div>`;
-                    });
-                }
-                taskListDiv.innerHTML = listHtml;
-            } else {
-                taskListDiv.innerHTML = `<p style="color:#809780;">点击日期查看实验</p>`;
-            }
         }
 
         window.selectDailyDate = function(dateStr) {
             dailyCalendarState.selectedDate = dateStr;
             updateDailyCalendar();
+            // 修改：点击日期后关闭日历，并切换到选中的日期
+            closeDailyCalendar();
+            currentDailyDate = dateStr;
+            safeRender();
         };
 
         document.getElementById('dailyPrevMonth').addEventListener('click', () => {
@@ -1335,6 +1355,8 @@
             safeRender();
         };
         window.locateExperiment = function(expId) {
+            // 保留原有locateExperiment，但默认不是从daily进入
+            cameFromDaily = false;
             currentView = 'library';
             currentExpandedId = expId;
             safeRender();
@@ -1353,12 +1375,12 @@
                 if (view) {
                     currentView = view;
                     currentExpandedId = null;
+                    cameFromDaily = false; // 切换视图时重置标志
                     safeRender();
                 }
             });
         });
 
-        // 初始渲染
         safeRender();
     })();
 </script>
